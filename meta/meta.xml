@@ -1,0 +1,12 @@
+<app version="1">
+	<name>Wii DNS Switcher</name>
+	<coder>quatric</coder>
+	<version>1.0</version>
+	<release_date>20260831000000</release_date>
+	<short_description>Switch DNS on existing Wi-Fi connections</short_description>
+	<long_description>Saves named primary-DNS profiles on the SD card and applies
+them directly to the console's configured Wi-Fi connections, without touching
+SSIDs, passwords, or other settings. Secondary DNS is always set to 1.1.1.1.
+Port of the 3DS DNS Switcher, using the config.dat layout documented by the
+OfflineNetworkEnabler project.</long_description>
+</app>
