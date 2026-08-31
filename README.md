@@ -25,21 +25,43 @@ SD card and launch it from the Homebrew Channel.
 
 ## Controls
 
-- Wiimote D-Pad Up/Down: choose a profile or **Add DNS profile**
+Navigation works with a Wiimote, Wiimote + Nunchuk, Classic Controller, or a
+GameCube pad — all normalized onto the same button set by
+[source/controller.c](source/controller.c) (ported from
+[larsenv/GlowWii](https://github.com/larsenv/GlowWii)'s `DetectInput()`).
+Building with `WITH_WIIDRC=1` / `WITH_WUPC=1` / `WITH_SICKSAXIS=1` also adds
+Wii U GamePad, Wii U Pro Controller, and DualShock 3 support respectively
+(see Building below).
+
+- D-Pad Up/Down: choose a profile or **Add DNS profile**
 - `A`: select/apply
 - `1`: cycle and save the Wi-Fi-slot target
 - `2`: delete the highlighted profile
 - `HOME`: exit without applying
 
-Adding a profile from the on-console UI requires a USB keyboard plugged into
-the Wii. Without one, edit `sd:/wii/dns-switcher/profiles.txt` directly —
-each line is `name<TAB>dns.ip.address`.
+Adding a profile opens an on-screen QWERTY keyboard
+([source/onscreen_keyboard.c](source/onscreen_keyboard.c)) navigated with
+whichever controller is connected (D-Pad to move, `A` to type, `B` to
+backspace, `2` for space, `1` to toggle case, `+` to confirm, `HOME` to
+cancel). A connected USB/Bluetooth keyboard also types directly into the
+same field at any time — no mode switch needed. You can also skip the UI
+entirely and edit `sd:/wii/dns-switcher/profiles.txt` by hand; each line is
+`name<TAB>dns.ip.address`.
 
 ## Building
 
 Install a current devkitPPC/libogc toolchain (devkitPro) and run `make` from
 the project root. `make package` additionally stages `dist/apps/dns-switcher`
 for copying to an SD card.
+
+For the optional Wii U GamePad / Wii U Pro Controller / DualShock 3 support,
+first run `./scripts/build_controller_portlibs.sh` to build the needed
+portlibs into `portlibs/ppc`, then build with the matching flag(s), e.g.:
+
+```bash
+./scripts/build_controller_portlibs.sh
+make WITH_WIIDRC=1 WITH_WUPC=1 WITH_SICKSAXIS=1
+```
 
 The `/shared2/sys/net/02/config.dat` layout and CRC-free field offsets are
 based on the OfflineNetworkEnabler project (wiibrew.org), reverse-engineered

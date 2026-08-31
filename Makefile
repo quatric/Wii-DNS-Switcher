@@ -10,12 +10,31 @@ SOURCES     := source
 INCLUDES    := source
 
 LIBS        := -lfat -lwiikeyboard -lwiiuse -lbte -logc -lm
-LIBDIRS     :=
+LIBDIRS     := $(CURDIR)/portlibs/ppc
 
 CFLAGS      := -g -O2 -Wall -Wextra -ffunction-sections -D__wii__ \
                $(MACHDEP) $(INCLUDE)
 CXXFLAGS    := $(CFLAGS)
 LDFLAGS     := -g $(MACHDEP) -Wl,-Map,$(notdir $@).map,--gc-sections
+
+# Optional extra controller support (needs ./scripts/build_controller_portlibs.sh
+# run first to populate portlibs/ppc): Wii U Pro Controller/GamePad, DualShock 3.
+WITH_WIIDRC    ?= 0
+WITH_WUPC      ?= 0
+WITH_SICKSAXIS ?= 0
+ifeq ($(WITH_WIIDRC),1)
+ CFLAGS += -DHAVE_WIIDRC
+ LIBS := -lwiidrc $(LIBS)
+endif
+ifeq ($(WITH_WUPC),1)
+ CFLAGS += -DHAVE_WUPC
+ LDFLAGS += -Wl,-wrap,wiiuse_accept
+ LIBS := -lwupc $(LIBS)
+endif
+ifeq ($(WITH_SICKSAXIS),1)
+ CFLAGS += -DHAVE_SICKSAXIS
+ LIBS := -lsicksaxis $(LIBS)
+endif
 
 ifneq ($(BUILD),$(notdir $(CURDIR)))
 export OUTPUT := $(CURDIR)/$(TARGET)

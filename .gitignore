@@ -3,3 +3,4 @@ build/
 *.dol
 *.map
 dist/
+portlibs/

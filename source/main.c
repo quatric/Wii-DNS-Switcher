@@ -10,7 +10,9 @@
 #include <fat.h>
 #include <wiikeyboard/keyboard.h>
 
+#include "controller.h"
 #include "netconfig.h"
+#include "onscreen_keyboard.h"
 
 #define PROFILE_DIR  "sd:/wii/dns-switcher"
 #define PROFILE_PATH "sd:/wii/dns-switcher/profiles.txt"
@@ -115,68 +117,19 @@ static void ClearConsole(void) {
     printf("\x1b[1;1H");
 }
 
-// Reads one line of text via a connected USB keyboard. Returns false if the
-// user cancels with Escape or no keyboard is attached.
-static bool AskText(const char *prompt, char *output, size_t capacity) {
-    output[0] = '\0';
-    size_t len = 0;
-    bool keyboardSeen = false;
-
-    ClearConsole();
-    printf("%s\n\nType on a USB keyboard, ENTER to confirm, ESC to cancel.\n\n> ", prompt);
-
-    while (1) {
-        WPAD_ScanPads();
-        if (WPAD_ButtonsDown(0) & WPAD_BUTTON_HOME) return false;
-
-        keyboard_event event;
-        while (KEYBOARD_GetEvent(&event) > 0) {
-            if (event.type == KEYBOARD_CONNECTED) keyboardSeen = true;
-            if (event.type != KEYBOARD_PRESSED) continue;
-
-            if (event.symbol == KS_Return || event.symbol == KS_KP_Enter) {
-                return len > 0;
-            }
-            if (event.symbol == KS_Escape) {
-                return false;
-            }
-            if (event.symbol == KS_BackSpace) {
-                if (len > 0) {
-                    len--;
-                    output[len] = '\0';
-                    printf("\b \b");
-                }
-                continue;
-            }
-            if (event.symbol >= 0x20 && event.symbol < 0x7F && len + 1 < capacity) {
-                output[len++] = (char)event.symbol;
-                output[len] = '\0';
-                printf("%c", (char)event.symbol);
-            }
-        }
-
-        if (!keyboardSeen) {
-            printf("\r\x1b[2K> (waiting for a USB keyboard...) %s", output);
-        }
-
-        PresentFrame();
-    }
-}
-
 static bool AddProfile(void) {
     if (profileCount >= MAX_PROFILES) return false;
     char name[33] = {0};
     char dns[16] = {0};
     u8 parsed[4];
 
-    if (!AskText("Profile name:", name, sizeof(name))) return false;
-    if (!AskText("Primary DNS (e.g. 1.1.1.1):", dns, sizeof(dns))) return false;
+    if (!OnScreenKeyboard("Profile name:", name, sizeof(name))) return false;
+    if (!OnScreenKeyboard("Primary DNS (e.g. 1.1.1.1):", dns, sizeof(dns))) return false;
     if (!ParseIpv4(dns, parsed)) {
         ClearConsole();
         printf("Invalid IPv4 address.\n\nPress A to return.\n");
         while (1) {
-            WPAD_ScanPads();
-            if (WPAD_ButtonsDown(0) & WPAD_BUTTON_A) break;
+            if (Controller_Scan(CONTROLLER_BUTTONS_DOWN) & WPAD_BUTTON_A) break;
             PresentFrame();
         }
         return false;
@@ -212,8 +165,7 @@ static int ChooseProfile(int *target) {
             redraw = false;
         }
 
-        WPAD_ScanPads();
-        u32 down = WPAD_ButtonsDown(0);
+        u32 down = Controller_Scan(CONTROLLER_BUTTONS_DOWN);
 
         if ((down & WPAD_BUTTON_UP) && selected > 0) { selected--; redraw = true; }
         if ((down & WPAD_BUTTON_DOWN) && selected < addIndex) { selected++; redraw = true; }
@@ -265,7 +217,7 @@ static s32 ApplyProfile(const DnsProfile *profile, int target, int *changed) {
 
 int main(void) {
     VIDEO_Init();
-    WPAD_Init();
+    Controller_Init();
 
     rmode = VIDEO_GetPreferredMode(NULL);
     xfb = MEM_K0_TO_K1(SYS_AllocateFramebuffer(rmode));
@@ -309,8 +261,7 @@ int main(void) {
 
         printf("DNS write failed: %d\n\nPress A to return.\n", (int)rc);
         while (1) {
-            WPAD_ScanPads();
-            if (WPAD_ButtonsDown(0) & WPAD_BUTTON_A) break;
+            if (Controller_Scan(CONTROLLER_BUTTONS_DOWN) & WPAD_BUTTON_A) break;
             PresentFrame();
         }
     }
@@ -318,5 +269,6 @@ int main(void) {
     ISFS_Deinitialize();
 
 done:
+    Controller_Shutdown();
     return 0;
 }
