@@ -66,6 +66,60 @@ bool OnScreenKeyboard(const char *prompt, char *output, size_t capacity) {
             redraw = false;
         }
 
+        // Physical keyboard: type straight into the buffer alongside the
+        // on-screen grid, so a connected keyboard is just faster, not a
+        // separate mode.
+        keyboard_event event;
+        while (KEYBOARD_GetEvent(&event) > 0) {
+            if (event.type != KEYBOARD_PRESSED) continue;
+
+            if (event.symbol == KS_Return || event.symbol == KS_KP_Enter) {
+                return len > 0;
+            }
+            if (event.symbol == KS_Escape) {
+                return false;
+            }
+            if (event.symbol == KS_BackSpace) {
+                if (len > 0) { output[--len] = '\0'; redraw = true; }
+                continue;
+            }
+            if (event.symbol == KS_Tab) {
+                shift = !shift;
+                ClampCursor(&row, &col, shift);
+                redraw = true;
+                continue;
+            }
+            if (event.symbol == KS_Up) {
+                row--;
+                ClampCursor(&row, &col, shift);
+                redraw = true;
+                continue;
+            }
+            if (event.symbol == KS_Down) {
+                row++;
+                ClampCursor(&row, &col, shift);
+                redraw = true;
+                continue;
+            }
+            if (event.symbol == KS_Left) {
+                col--;
+                ClampCursor(&row, &col, shift);
+                redraw = true;
+                continue;
+            }
+            if (event.symbol == KS_Right) {
+                col++;
+                ClampCursor(&row, &col, shift);
+                redraw = true;
+                continue;
+            }
+            if (event.symbol >= 0x20 && event.symbol < 0x7F && len + 1 < capacity) {
+                output[len++] = (char)event.symbol;
+                output[len] = '\0';
+                redraw = true;
+            }
+        }
+
         u32 pressed = Controller_Scan(CONTROLLER_BUTTONS_DOWN);
 
         if (pressed & WPAD_BUTTON_UP)    { row--; ClampCursor(&row, &col, shift); redraw = true; }
@@ -99,30 +153,6 @@ bool OnScreenKeyboard(const char *prompt, char *output, size_t capacity) {
         }
         if (pressed & WPAD_BUTTON_HOME) {
             return false;
-        }
-
-        // Physical keyboard: type straight into the buffer alongside the
-        // on-screen grid, so a connected keyboard is just faster, not a
-        // separate mode.
-        keyboard_event event;
-        while (KEYBOARD_GetEvent(&event) > 0) {
-            if (event.type != KEYBOARD_PRESSED) continue;
-
-            if (event.symbol == KS_Return || event.symbol == KS_KP_Enter) {
-                return len > 0;
-            }
-            if (event.symbol == KS_Escape) {
-                return false;
-            }
-            if (event.symbol == KS_BackSpace) {
-                if (len > 0) { output[--len] = '\0'; redraw = true; }
-                continue;
-            }
-            if (event.symbol >= 0x20 && event.symbol < 0x7F && len + 1 < capacity) {
-                output[len++] = (char)event.symbol;
-                output[len] = '\0';
-                redraw = true;
-            }
         }
 
         VIDEO_WaitVSync();

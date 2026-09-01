@@ -25,27 +25,28 @@ SD card and launch it from the Homebrew Channel.
 
 ## Controls
 
-Navigation works with a Wiimote, Wiimote + Nunchuk, Classic Controller, or a
-GameCube pad — all normalized onto the same button set by
+Navigation works with a Wiimote, Wiimote + Nunchuk, Classic Controller, GameCube
+pad, or a USB keyboard — all normalized onto the same button set by
 [source/controller.c](source/controller.c) (ported from
 [larsenv/GlowWii](https://github.com/larsenv/GlowWii)'s `DetectInput()`).
 Building with `WITH_WIIDRC=1` / `WITH_WUPC=1` / `WITH_SICKSAXIS=1` also adds
 Wii U GamePad, Wii U Pro Controller, and DualShock 3 support respectively
 (see Building below).
 
-- D-Pad Up/Down: choose a profile or **Add DNS profile**
-- `A`: select/apply
-- `1`: cycle and save the Wi-Fi-slot target
-- `2`: delete the highlighted profile
-- `HOME`: exit without applying
+- D-Pad Up/Down / Keyboard Up/Down: choose a profile or **Add DNS profile**
+- `A` / Keyboard Enter / Space: select/apply
+- `1` / Keyboard `1` / Tab: cycle and save the Wi-Fi-slot target
+- `2` / Keyboard `2` / Delete: delete the highlighted profile
+- `HOME` / Keyboard Esc: exit without applying
 
 Adding a profile opens an on-screen QWERTY keyboard
 ([source/onscreen_keyboard.c](source/onscreen_keyboard.c)) navigated with
 whichever controller is connected (D-Pad to move, `A` to type, `B` to
 backspace, `2` for space, `1` to toggle case, `+` to confirm, `HOME` to
-cancel). A connected USB/Bluetooth keyboard also types directly into the
-same field at any time — no mode switch needed. You can also skip the UI
-entirely and edit `sd:/wii/dns-switcher/profiles.txt` by hand; each line is
+cancel). A connected USB keyboard also types directly into the same field at
+any time — no mode switch needed (Enter to confirm, Esc to cancel, Backspace
+to delete, Tab to toggle shift). You can also skip the UI entirely and edit
+`sd:/wii/dns-switcher/profiles.txt` by hand; each line is
 `name<TAB>dns.ip.address`.
 
 ## Building

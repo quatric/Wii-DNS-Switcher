@@ -8,7 +8,6 @@
 #include <wiiuse/wpad.h>
 #include <ogc/isfs.h>
 #include <fat.h>
-#include <wiikeyboard/keyboard.h>
 
 #include "controller.h"
 #include "netconfig.h"
@@ -89,8 +88,8 @@ static void LoadProfiles(void) {
         tab[strcspn(tab, "\r\n")] = '\0';
         u8 parsed[4];
         if (line[0] && ParseIpv4(tab, parsed)) {
-            snprintf(profiles[profileCount].name, sizeof(profiles[profileCount].name), "%s", line);
-            snprintf(profiles[profileCount].dns, sizeof(profiles[profileCount].dns), "%s", tab);
+            snprintf(profiles[profileCount].name, sizeof(profiles[profileCount].name), "%.32s", line);
+            snprintf(profiles[profileCount].dns, sizeof(profiles[profileCount].dns), "%.15s", tab);
             profileCount++;
         }
     }
@@ -231,7 +230,6 @@ int main(void) {
     if (rmode->viTVMode & VI_NON_INTERLACE) VIDEO_WaitVSync();
 
     fatInitDefault();
-    KEYBOARD_Init(NULL);
 
     s32 isfsRc = ISFS_Initialize();
     if (isfsRc != ISFS_OK) {

@@ -15,7 +15,12 @@
 #include <sicksaxis.h>
 #endif
 
+#include <wiikeyboard/keyboard.h>
+#include <wiikeyboard/wsksymdef.h>
+
 #include "controller.h"
+
+static u32 kbd_held = 0;
 
 #ifdef HAVE_SICKSAXIS
 static struct ss_device ds3;
@@ -88,6 +93,101 @@ static u32 PollDs3(int down) {
 }
 #endif
 
+static u32 MapKeyboardKey(const keyboard_event *event) {
+    u32 button = 0;
+
+    switch (event->symbol) {
+    case KS_Up:
+        button |= WPAD_BUTTON_UP;
+        break;
+    case KS_Down:
+        button |= WPAD_BUTTON_DOWN;
+        break;
+    case KS_Left:
+        button |= WPAD_BUTTON_LEFT;
+        break;
+    case KS_Right:
+        button |= WPAD_BUTTON_RIGHT;
+        break;
+    case KS_Return:
+    case KS_KP_Enter:
+    case KS_space:
+        button |= WPAD_BUTTON_A;
+        break;
+    case KS_BackSpace:
+        button |= WPAD_BUTTON_B;
+        break;
+    case KS_Escape:
+    case KS_Home:
+        button |= WPAD_BUTTON_HOME;
+        break;
+    case KS_Tab:
+    case KS_1:
+    case KS_x:
+    case KS_X:
+        button |= WPAD_BUTTON_1;
+        break;
+    case KS_Delete:
+    case KS_2:
+    case KS_y:
+    case KS_Y:
+        button |= WPAD_BUTTON_2;
+        break;
+    case KS_plus:
+    case KS_equal:
+        button |= WPAD_BUTTON_PLUS;
+        break;
+    case KS_minus:
+        button |= WPAD_BUTTON_MINUS;
+        break;
+    default:
+        break;
+    }
+
+    if (!button) {
+        switch (event->keycode) {
+        case 0x52: // Up
+            button |= WPAD_BUTTON_UP;
+            break;
+        case 0x51: // Down
+            button |= WPAD_BUTTON_DOWN;
+            break;
+        case 0x50: // Left
+            button |= WPAD_BUTTON_LEFT;
+            break;
+        case 0x4F: // Right
+            button |= WPAD_BUTTON_RIGHT;
+            break;
+        case 0x28: // Enter
+        case 0x58: // Keypad Enter
+        case 0x2C: // Space
+            button |= WPAD_BUTTON_A;
+            break;
+        case 0x2A: // Backspace
+            button |= WPAD_BUTTON_B;
+            break;
+        case 0x29: // Escape
+        case 0x4A: // Home
+            button |= WPAD_BUTTON_HOME;
+            break;
+        case 0x2B: // Tab
+        case 0x1E: // 1
+        case 0x1B: // X
+            button |= WPAD_BUTTON_1;
+            break;
+        case 0x4C: // Delete
+        case 0x1F: // 2
+        case 0x1C: // Y
+            button |= WPAD_BUTTON_2;
+            break;
+        default:
+            break;
+        }
+    }
+
+    return button;
+}
+
 void Controller_Init(void) {
     PAD_Init();
     WPAD_Init();
@@ -103,9 +203,11 @@ void Controller_Init(void) {
         if (ss_open(&ds3) > 0) ss_start_reading(&ds3);
     }
 #endif
+    KEYBOARD_Init(NULL);
 }
 
 void Controller_Shutdown(void) {
+    KEYBOARD_Deinit();
 #ifdef HAVE_SICKSAXIS
     if (ds3_initialized) {
         if (ss_is_connected(&ds3)) ss_stop_reading(&ds3);
@@ -160,6 +262,19 @@ u32 Controller_Scan(u8 downOrHeld) {
         if (gcpressed & PAD_BUTTON_LEFT) pressed |= WPAD_BUTTON_LEFT;
         if (gcpressed & PAD_BUTTON_RIGHT) pressed |= WPAD_BUTTON_RIGHT;
     }
+
+    keyboard_event kbevt;
+    u32 kbd_down = 0;
+    while (KEYBOARD_GetEvent(&kbevt) > 0) {
+        u32 btn = MapKeyboardKey(&kbevt);
+        if (kbevt.type == KEYBOARD_PRESSED) {
+            kbd_down |= btn;
+            kbd_held |= btn;
+        } else if (kbevt.type == KEYBOARD_RELEASED) {
+            kbd_held &= ~btn;
+        }
+    }
+    pressed |= down ? kbd_down : kbd_held;
 
     return pressed;
 }
