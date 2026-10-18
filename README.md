@@ -6,6 +6,13 @@ A Wii Homebrew Channel app for quickly switching the DNS used by existing
 Wi-Fi connections. Wii port of
 [3DS DNS Switcher](https://github.com/quatric/3DS-DNS-Switcher).
 
+## Download
+
+Grab the latest build from the [latest release](../../releases/latest): `Wii-DNS-Switcher.zip`. The loose `dns-switcher.dol` and `dns-switcher-xz.dol` are there too, for `wiiload`. Every push to the main branch refreshes it, and tagged versions get their own entry on the [releases page](../../releases).
+
+1. Extract `Wii-DNS-Switcher.zip` to the root of your SD card (or USB drive).
+2. Open Wii DNS Switcher from the Homebrew Channel.
+
 ## Features
 
 - Saves named primary-DNS profiles on the SD card.
