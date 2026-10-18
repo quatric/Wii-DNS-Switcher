@@ -1,5 +1,7 @@
 # Wii DNS Switcher
 
+**Version:** 1.1 · **Coder:** quatric
+
 A Wii Homebrew Channel app for quickly switching the DNS used by existing
 Wi-Fi connections. Wii port of
 [3DS DNS Switcher](https://github.com/quatric/3DS-DNS-Switcher).
