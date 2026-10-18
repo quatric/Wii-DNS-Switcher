@@ -53,7 +53,11 @@ to delete, Tab to toggle shift). You can also skip the UI entirely and edit
 
 Install a current devkitPPC/libogc toolchain (devkitPro) and run `make` from
 the project root. `make package` additionally stages `dist/apps/dns-switcher`
-for copying to an SD card.
+for copying to an SD card, with `dns-switcher-xz.dol` (the same program packed
+into a self-extracting `.dol` a fraction of the size) as `boot.dol`.
+
+The first build downloads and builds [dolxz](https://github.com/FIX94/dolxz), which needs a host C compiler and liblzma (Debian/Ubuntu: `apt-get install liblzma-dev pkg-config`; macOS: `brew install xz`).
+`make NO_DOLXZ=1` packages the plain `dns-switcher.dol` instead.
 
 For the optional Wii U GamePad / Wii U Pro Controller / DualShock 3 support,
 first run `./scripts/build_controller_portlibs.sh` to build the needed
