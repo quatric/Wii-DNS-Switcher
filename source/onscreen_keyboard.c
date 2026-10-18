@@ -3,7 +3,7 @@
 
 #include <gccore.h>
 #include <wiiuse/wpad.h>
-#include <wiikeyboard/keyboard.h>
+#include <input_wii.h>
 
 #include "controller.h"
 #include "onscreen_keyboard.h"
@@ -58,7 +58,10 @@ bool OnScreenKeyboard(const char *prompt, char *output, size_t capacity) {
     bool shift = false;
     bool redraw = true;
 
-    KEYBOARD_FlushEvents();
+    input_key_event event;
+    INPUT_Update();
+    while (INPUT_KeyPop(&event)) {
+    }
 
     while (1) {
         if (redraw) {
@@ -69,58 +72,57 @@ bool OnScreenKeyboard(const char *prompt, char *output, size_t capacity) {
         // Physical keyboard: type straight into the buffer alongside the
         // on-screen grid, so a connected keyboard is just faster, not a
         // separate mode.
-        keyboard_event event;
-        while (KEYBOARD_GetEvent(&event) > 0) {
-            if (event.type != KEYBOARD_PRESSED) continue;
-
-            if (event.symbol == KS_Return || event.symbol == KS_KP_Enter) {
+        INPUT_Update();
+        while (INPUT_KeyPop(&event)) {
+            if (event.code == 0x28 || event.code == 0x58) {
                 return len > 0;
             }
-            if (event.symbol == KS_Escape) {
+            if (event.code == 0x29) {
                 return false;
             }
-            if (event.symbol == KS_BackSpace) {
+            if (event.code == 0x2A) {
                 if (len > 0) { output[--len] = '\0'; redraw = true; }
                 continue;
             }
-            if (event.symbol == KS_Tab) {
+            if (event.code == 0x2B) {
                 shift = !shift;
                 ClampCursor(&row, &col, shift);
                 redraw = true;
                 continue;
             }
-            if (event.symbol == KS_Up) {
+            if (event.code == 0x52) {
                 row--;
                 ClampCursor(&row, &col, shift);
                 redraw = true;
                 continue;
             }
-            if (event.symbol == KS_Down) {
+            if (event.code == 0x51) {
                 row++;
                 ClampCursor(&row, &col, shift);
                 redraw = true;
                 continue;
             }
-            if (event.symbol == KS_Left) {
+            if (event.code == 0x50) {
                 col--;
                 ClampCursor(&row, &col, shift);
                 redraw = true;
                 continue;
             }
-            if (event.symbol == KS_Right) {
+            if (event.code == 0x4F) {
                 col++;
                 ClampCursor(&row, &col, shift);
                 redraw = true;
                 continue;
             }
-            if (event.symbol >= 0x20 && event.symbol < 0x7F && len + 1 < capacity) {
-                output[len++] = (char)event.symbol;
+            if (event.ch && len + 1 < capacity) {
+                output[len++] = event.ch;
                 output[len] = '\0';
                 redraw = true;
             }
         }
 
-        u32 pressed = Controller_Scan(CONTROLLER_BUTTONS_DOWN);
+        // Controllers only: the keyboard was handled above.
+        u32 pressed = INPUT_PadsDown();
 
         if (pressed & WPAD_BUTTON_UP)    { row--; ClampCursor(&row, &col, shift); redraw = true; }
         if (pressed & WPAD_BUTTON_DOWN)  { row++; ClampCursor(&row, &col, shift); redraw = true; }

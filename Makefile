@@ -6,11 +6,11 @@ include $(DEVKITPPC)/wii_rules
 
 TARGET      := dns-switcher
 BUILD       := build
-SOURCES     := source
+SOURCES     := source libinput-wii/source
 INCLUDES    := source
 
 LIBS        := -lfat -lwiikeyboard -lwiiuse -lbte -logc -lm
-LIBDIRS     := $(CURDIR)/portlibs/ppc
+LIBDIRS     := $(CURDIR)/portlibs/ppc $(CURDIR)/libinput-wii
 
 CFLAGS      := -g -O2 -Wall -Wextra -ffunction-sections -D__wii__ \
                $(MACHDEP) $(INCLUDE)

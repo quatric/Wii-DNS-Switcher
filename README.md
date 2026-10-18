@@ -27,8 +27,8 @@ SD card and launch it from the Homebrew Channel.
 
 Navigation works with a Wiimote, Wiimote + Nunchuk, Classic Controller, GameCube
 pad, or a USB keyboard — all normalized onto the same button set by
-[source/controller.c](source/controller.c) (ported from
-[larsenv/GlowWii](https://github.com/larsenv/GlowWii)'s `DetectInput()`).
+[libinput-wii](https://github.com/quatric/libinput-wii)
+(see [source/controller.c](source/controller.c)).
 Building with `WITH_WIIDRC=1` / `WITH_WUPC=1` / `WITH_SICKSAXIS=1` also adds
 Wii U GamePad, Wii U Pro Controller, and DualShock 3 support respectively
 (see Building below).
