@@ -8,6 +8,7 @@
 #include <wiiuse/wpad.h>
 #include <ogc/isfs.h>
 #include <fat.h>
+#include <wiiupdate.h>
 
 #include "controller.h"
 #include "netconfig.h"
@@ -214,7 +215,11 @@ static s32 ApplyProfile(const DnsProfile *profile, int target, int *changed) {
     return NetConfigSave(&config);
 }
 
-int main(void) {
+static u32 UpdateButtons(void) {
+    return Controller_Scan(CONTROLLER_BUTTONS_DOWN);
+}
+
+int main(int argc, char **argv) {
     VIDEO_Init();
     Controller_Init();
 
@@ -230,6 +235,12 @@ int main(void) {
     if (rmode->viTVMode & VI_NON_INTERLACE) VIDEO_WaitVSync();
 
     fatInitDefault();
+
+    /* One update check at boot: B skips it, failures are silent. */
+    printf("\x1b[2;0H");
+    WIIUPDATE_SetAppPath(argc > 0 ? argv[0] : NULL);
+    if (WIIUPDATE_CheckConsole("quatric", "Wii-DNS-Switcher", APP_VERSION, UpdateButtons) == WIIUPDATE_UPDATED)
+        goto done;
 
     s32 isfsRc = ISFS_Initialize();
     if (isfsRc != ISFS_OK) {

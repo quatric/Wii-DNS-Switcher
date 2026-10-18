@@ -10,10 +10,15 @@ SOURCES     := source libinput-wii/source
 INCLUDES    := source
 
 LIBS        := -lfat -lwiikeyboard -lwiiuse -lbte -logc -lm
+LIBS	:=	-lwiiupdate $(LIBS)
 LIBDIRS     := $(CURDIR)/portlibs/ppc $(CURDIR)/libinput-wii
+LIBDIRS	+=	$(CURDIR)/libwiiupdate
 
 CFLAGS      := -g -O2 -Wall -Wextra -ffunction-sections -D__wii__ \
                $(MACHDEP) $(INCLUDE)
+# Version for the update check: the release tag when CI builds one, else meta.xml
+APP_VERSION	?=	$(if $(filter refs/tags/%,$(GITHUB_REF)),$(GITHUB_REF_NAME),$(shell sed -n 's:.*<version>\(.*\)</version>.*:\1:p' $(dir $(abspath $(firstword $(MAKEFILE_LIST))))meta/meta.xml))
+CFLAGS	+=	-DAPP_VERSION=\"$(APP_VERSION)\"
 CXXFLAGS    := $(CFLAGS)
 LDFLAGS     := -g $(MACHDEP) -Wl,-Map,$(notdir $@).map,--gc-sections
 
@@ -67,6 +72,11 @@ all: $(BUILD)
 $(BUILD):
 	@[ -d $@ ] || mkdir -p $@
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
+
+$(BUILD): libwiiupdate-lib
+.PHONY: libwiiupdate-lib
+libwiiupdate-lib:
+	@$(MAKE) --no-print-directory -C $(CURDIR)/libwiiupdate
 
 clean:
 	@rm -fr $(BUILD) $(TARGET).elf $(TARGET).dol $(TARGET)-xz.dol
