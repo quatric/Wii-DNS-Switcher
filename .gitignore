@@ -4,3 +4,4 @@ build/
 *.map
 dist/
 portlibs/
+.dolxz/

@@ -21,6 +21,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: true
+      - name: Install dolxz build dependencies
+        run: apt-get update -qq && apt-get install -y -qq --no-install-recommends gcc libc6-dev liblzma-dev pkg-config curl ca-certificates
 
       - name: Install host tools
         run: apt-get update && apt-get install -y --no-install-recommends python3 git ca-certificates
@@ -40,6 +42,7 @@ jobs:
           name: Wii-DNS-Switcher
           path: |
             dns-switcher.dol
+            dns-switcher-xz.dol
             dist/apps/dns-switcher
 
       - name: Release
@@ -48,5 +51,6 @@ jobs:
         with:
           files: |
             dns-switcher.dol
+            dns-switcher-xz.dol
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -36,6 +36,13 @@ ifeq ($(WITH_SICKSAXIS),1)
  LIBS := -lsicksaxis $(LIBS)
 endif
 
+# The .dol that goes into the Homebrew Channel package.
+ifeq ($(NO_DOLXZ),1)
+BOOT_DOL	=	$(TARGET).dol
+else
+BOOT_DOL	=	$(TARGET)-xz.dol
+endif
+
 ifneq ($(BUILD),$(notdir $(CURDIR)))
 export OUTPUT := $(CURDIR)/$(TARGET)
 export VPATH  := $(foreach dir,$(SOURCES),$(CURDIR)/$(dir))
@@ -62,18 +69,29 @@ $(BUILD):
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 
 clean:
-	@rm -fr $(BUILD) $(TARGET).elf $(TARGET).dol
+	@rm -fr $(BUILD) $(TARGET).elf $(TARGET).dol $(TARGET)-xz.dol
 
 run: all
 	wiiload $(TARGET).dol
 
 package: all
 	@mkdir -p dist/apps/dns-switcher
-	@cp $(TARGET).dol meta/meta.xml meta/icon.png dist/apps/dns-switcher/
+	@cp $(BOOT_DOL) dist/apps/dns-switcher/boot.dol
+	@cp meta/meta.xml meta/icon.png dist/apps/dns-switcher/
 
 else
 
 DEPENDS := $(OFILES:.o=.d)
+
+#---------------------------------------------------------------------------------
+# Self-extracting xz-compressed copy of the .dol (FIX94's dolxz, see
+# scripts/dolxz.sh). It is the default target; NO_DOLXZ=1 skips it.
+#---------------------------------------------------------------------------------
+ifneq ($(NO_DOLXZ),1)
+$(OUTPUT)-xz.dol: $(OUTPUT).dol
+	@echo compressing ... $(notdir $@)
+	@sh $(dir $(OUTPUT))scripts/dolxz.sh $< $@
+endif
 
 $(OUTPUT).dol: $(OUTPUT).elf
 $(OUTPUT).elf: $(OFILES)
