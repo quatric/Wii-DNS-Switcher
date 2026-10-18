@@ -1,7 +1,7 @@
 <app version="1">
 	<name>Wii DNS Switcher</name>
 	<coder>quatric</coder>
-	<version>1.0</version>
+	<version>1.1</version>
 	<release_date>20260831000000</release_date>
 	<short_description>Switch DNS on existing Wi-Fi connections</short_description>
 	<long_description>Saves named primary-DNS profiles on the SD card and applies
