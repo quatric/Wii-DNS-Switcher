@@ -45,11 +45,18 @@ jobs:
             dns-switcher-xz.dol
             dist/apps/dns-switcher
 
+      - name: Zip release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          apt-get update -qq && apt-get install -y -qq --no-install-recommends zip
+          (cd dist && zip -r "$GITHUB_WORKSPACE/Wii-DNS-Switcher.zip" apps)
+
       - name: Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: |
+            Wii-DNS-Switcher.zip
             dns-switcher.dol
             dns-switcher-xz.dol
         env:
