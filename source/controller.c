@@ -1,4 +1,4 @@
-// Controller and keyboard input via libinput-wii. See
+// Controller and keyboard input via libwiiinput. See
 // scripts/build_controller_portlibs.sh for the optional WITH_WIIDRC /
 // WITH_WUPC / WITH_SICKSAXIS portlibs.
 
@@ -9,8 +9,8 @@
 #include "controller.h"
 
 void Controller_Init(void) {
-    // Buttons only: the switcher has no pointer and never used a mouse.
-    INPUT_InitEx(INPUT_INIT_NO_POINTER | INPUT_INIT_NO_MOUSE);
+    // The pointer and mouse drive the on-screen keyboard (libwiiosk).
+    INPUT_Init();
 
     // Keyboard-as-controller additions on top of the library defaults
     // (arrows, Enter = A, Backspace = B, X = 1, Y = 2, Esc/Home = HOME).

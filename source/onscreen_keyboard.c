@@ -1,162 +1,118 @@
-#include <stdio.h>
+// The Wii system keyboard look-alike from libwiiosk. The app draws a text
+// console, so this takes the screen over for one edit (as OSK_Prompt does),
+// then puts the console back. Input comes from libwiiinput, which already
+// owns the USB keyboard, so the pointer, mouse and keyboard all work.
+
+#include <malloc.h>
 #include <string.h>
 
 #include <gccore.h>
-#include <wiiuse/wpad.h>
+#include <ogc/conf.h>
 #include <input_wii.h>
+#include <wiiosk.h>
+#include <wiiosk_input_wii.h>
 
-#include "controller.h"
 #include "onscreen_keyboard.h"
 
-static const char *LowerRows[] = {
-    "1234567890",
-    "qwertyuiop",
-    "asdfghjkl",
-    "zxcvbnm.-_",
-};
-static const char *UpperRows[] = {
-    "1234567890",
-    "QWERTYUIOP",
-    "ASDFGHJKL",
-    "ZXCVBNM.-_",
-};
-#define ROW_COUNT 4
+#define FIFO_SIZE (256 * 1024)
 
-static void ClampCursor(int *row, int *col, bool shift) {
-    const char **rows = shift ? UpperRows : LowerRows;
-    if (*row < 0) *row = 0;
-    if (*row >= ROW_COUNT) *row = ROW_COUNT - 1;
-    int len = (int)strlen(rows[*row]);
-    if (*col < 0) *col = 0;
-    if (*col >= len) *col = len - 1;
+static GXRModeObj *vmode;
+static void *vxfb;
+static void *gp_fifo;
+
+void OnScreenKeyboard_SetVideo(GXRModeObj *rmode, void *xfb) {
+    vmode = rmode;
+    vxfb = xfb;
 }
 
-static void DrawKeyboard(const char *prompt, const char *output, int row, int col, bool shift) {
-    printf("\x1b[2J\x1b[1;1H");
-    printf("%s\n\n> %s_\n\n", prompt, output);
-
-    const char **rows = shift ? UpperRows : LowerRows;
-    for (int r = 0; r < ROW_COUNT; ++r) {
-        for (int c = 0; rows[r][c]; ++c) {
-            if (r == row && c == col)
-                printf("[%c]", rows[r][c]);
-            else
-                printf(" %c ", rows[r][c]);
-        }
-        printf("\n");
-    }
-
-    printf("\nD-Pad: move   A: type   B: backspace   2: space\n");
-    printf("1: %s   +: confirm   HOME: cancel\n", shift ? "lowercase" : "uppercase/shift");
-    printf("(A physical USB/BT keyboard also types directly.)\n");
+static void SetupVideo(GXRModeObj *rmode) {
+    GX_SetViewport(0, 0, rmode->fbWidth, rmode->efbHeight, 0, 1);
+    f32 yscale = GX_GetYScaleFactor(rmode->efbHeight, rmode->xfbHeight);
+    u32 xfbHeight = GX_SetDispCopyYScale(yscale);
+    GX_SetScissor(0, 0, rmode->fbWidth, rmode->efbHeight);
+    GX_SetDispCopySrc(0, 0, rmode->fbWidth, rmode->efbHeight);
+    GX_SetDispCopyDst(rmode->fbWidth, xfbHeight);
+    GX_SetCopyFilter(rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter);
+    GX_SetFieldMode(rmode->field_rendering, (rmode->viHeight == 2 * rmode->xfbHeight) ? GX_ENABLE : GX_DISABLE);
+    GX_SetPixelFmt(rmode->aa ? GX_PF_RGB565_Z16 : GX_PF_RGB8_Z24, GX_ZC_LINEAR);
+    GX_SetDispCopyGamma(GX_GM_1_0);
+    GX_SetCopyClear((GXColor){ 0x20, 0x24, 0x2C, 0xFF }, GX_MAX_Z24);
 }
 
 bool OnScreenKeyboard(const char *prompt, char *output, size_t capacity) {
     output[0] = '\0';
-    size_t len = 0;
-    int row = 1, col = 0; // start on the letter rows
-    bool shift = false;
-    bool redraw = true;
+    if (!vmode || !vxfb || capacity < 2) return false;
 
-    input_key_event event;
-    INPUT_Update();
-    while (INPUT_KeyPop(&event)) {
+    u32 fbSize = VIDEO_GetFrameBufferSize(vmode);
+    void *saved = malloc(fbSize);
+    void *spare = memalign(32, fbSize);
+    if (!saved || !spare) {
+        free(saved);
+        free(spare);
+        return false;
+    }
+    memcpy(saved, vxfb, fbSize);
+    DCInvalidateRange(spare, fbSize);
+    void *fbs[2] = { vxfb, MEM_K0_TO_K1(spare) };
+
+    osk_config cfg;
+    OSK_DefaultConfig(&cfg);
+    cfg.title = prompt;
+    cfg.max_chars = (int)capacity - 1 < OSK_MAX_CHARS ? (int)capacity - 1 : OSK_MAX_CHARS;
+    cfg.layout = OSK_LAYOUT_QWERTY;
+    cfg.screen_width = vmode->fbWidth;
+    cfg.screen_height = vmode->efbHeight;
+    cfg.flags = OSK_FLAG_GX_READY | OSK_FLAG_NO_ENTER | OSK_FLAG_REQUIRE_TEXT;
+    if (CONF_GetAspectRatio() == CONF_ASPECT_16_9) cfg.flags |= OSK_FLAG_WIDESCREEN;
+    osk_keyboard *osk = OSK_Create(&cfg);
+    if (!osk) {
+        free(saved);
+        free(spare);
+        return false;
     }
 
-    while (1) {
-        if (redraw) {
-            DrawKeyboard(prompt, output, row, col, shift);
-            redraw = false;
-        }
+    if (!gp_fifo) {
+        gp_fifo = memalign(32, FIFO_SIZE);
+        memset(gp_fifo, 0, FIFO_SIZE);
+        GX_Init(gp_fifo, FIFO_SIZE);
+    }
+    SetupVideo(vmode);
+    INPUT_SetScreenSize(vmode->fbWidth, vmode->efbHeight);
+    GX_CopyDisp(fbs[1], GX_TRUE);
+    GX_DrawDone();
 
-        // Physical keyboard: type straight into the buffer alongside the
-        // on-screen grid, so a connected keyboard is just faster, not a
-        // separate mode.
+    osk_status st;
+    int cur = 1;
+    for (;;) {
         INPUT_Update();
-        while (INPUT_KeyPop(&event)) {
-            if (event.code == 0x28 || event.code == 0x58) {
-                return len > 0;
-            }
-            if (event.code == 0x29) {
-                return false;
-            }
-            if (event.code == 0x2A) {
-                if (len > 0) { output[--len] = '\0'; redraw = true; }
-                continue;
-            }
-            if (event.code == 0x2B) {
-                shift = !shift;
-                ClampCursor(&row, &col, shift);
-                redraw = true;
-                continue;
-            }
-            if (event.code == 0x52) {
-                row--;
-                ClampCursor(&row, &col, shift);
-                redraw = true;
-                continue;
-            }
-            if (event.code == 0x51) {
-                row++;
-                ClampCursor(&row, &col, shift);
-                redraw = true;
-                continue;
-            }
-            if (event.code == 0x50) {
-                col--;
-                ClampCursor(&row, &col, shift);
-                redraw = true;
-                continue;
-            }
-            if (event.code == 0x4F) {
-                col++;
-                ClampCursor(&row, &col, shift);
-                redraw = true;
-                continue;
-            }
-            if (event.ch && len + 1 < capacity) {
-                output[len++] = event.ch;
-                output[len] = '\0';
-                redraw = true;
-            }
-        }
+        osk_input in;
+        OSK_ReadInputWii(&in);
+        st = OSK_Update(osk, &in);
 
-        // Controllers only: the keyboard was handled above.
-        u32 pressed = INPUT_PadsDown();
-
-        if (pressed & WPAD_BUTTON_UP)    { row--; ClampCursor(&row, &col, shift); redraw = true; }
-        if (pressed & WPAD_BUTTON_DOWN)  { row++; ClampCursor(&row, &col, shift); redraw = true; }
-        if (pressed & WPAD_BUTTON_LEFT)  { col--; ClampCursor(&row, &col, shift); redraw = true; }
-        if (pressed & WPAD_BUTTON_RIGHT) { col++; ClampCursor(&row, &col, shift); redraw = true; }
-
-        if (pressed & WPAD_BUTTON_A) {
-            const char **rows = shift ? UpperRows : LowerRows;
-            if (len + 1 < capacity) {
-                output[len++] = rows[row][col];
-                output[len] = '\0';
-            }
-            redraw = true;
-        }
-        if (pressed & WPAD_BUTTON_B) {
-            if (len > 0) { output[--len] = '\0'; }
-            redraw = true;
-        }
-        if (pressed & WPAD_BUTTON_2) {
-            if (len + 1 < capacity) { output[len++] = ' '; output[len] = '\0'; }
-            redraw = true;
-        }
-        if (pressed & WPAD_BUTTON_1) {
-            shift = !shift;
-            ClampCursor(&row, &col, shift);
-            redraw = true;
-        }
-        if (pressed & WPAD_BUTTON_PLUS) {
-            return len > 0;
-        }
-        if (pressed & WPAD_BUTTON_HOME) {
-            return false;
-        }
-
+        GX_SetViewport(0, 0, vmode->fbWidth, vmode->efbHeight, 0, 1);
+        OSK_Draw(osk);
+        GX_DrawDone();
+        GX_SetColorUpdate(GX_TRUE);
+        GX_CopyDisp(fbs[cur], GX_TRUE);
+        GX_Flush();
+        VIDEO_SetNextFramebuffer(fbs[cur]);
+        VIDEO_Flush();
         VIDEO_WaitVSync();
+        cur ^= 1;
+        if (st != OSK_STATUS_EDITING) break;
     }
+
+    bool ok = st == OSK_STATUS_DONE;
+    if (ok) OSK_CopyText(osk, output, capacity);
+    OSK_Destroy(osk);
+
+    memcpy(vxfb, saved, fbSize);
+    DCFlushRange(vxfb, fbSize);
+    VIDEO_SetNextFramebuffer(vxfb);
+    VIDEO_Flush();
+    VIDEO_WaitVSync();
+    VIDEO_WaitVSync();
+    free(saved);
+    free(spare);
+    return ok && output[0] != '\0';
 }

@@ -36,7 +36,7 @@ SD card and launch it from the Homebrew Channel.
 
 Navigation works with a Wiimote, Wiimote + Nunchuk, Classic Controller, GameCube
 pad, or a USB keyboard — all normalized onto the same button set by
-[libinput-wii](https://github.com/quatric/libinput-wii)
+[libwiiinput](https://github.com/quatric/libwiiinput)
 (see [source/controller.c](source/controller.c)).
 Building with `WITH_WIIDRC=1` / `WITH_WUPC=1` / `WITH_SICKSAXIS=1` also adds
 Wii U GamePad, Wii U Pro Controller, and DualShock 3 support respectively
@@ -48,13 +48,14 @@ Wii U GamePad, Wii U Pro Controller, and DualShock 3 support respectively
 - `2` / Keyboard `2` / Delete: delete the highlighted profile
 - `HOME` / Keyboard Esc: exit without applying
 
-Adding a profile opens an on-screen QWERTY keyboard
-([source/onscreen_keyboard.c](source/onscreen_keyboard.c)) navigated with
-whichever controller is connected (D-Pad to move, `A` to type, `B` to
-backspace, `2` for space, `1` to toggle case, `+` to confirm, `HOME` to
-cancel). A connected USB keyboard also types directly into the same field at
-any time — no mode switch needed (Enter to confirm, Esc to cancel, Backspace
-to delete, Tab to toggle shift). You can also skip the UI entirely and edit
+Adding a profile opens the Wii-style on-screen keyboard from
+[libwiiosk](https://github.com/quatric/libwiiosk)
+([source/onscreen_keyboard.c](source/onscreen_keyboard.c)). Point with the Wii
+Remote or a USB mouse and press `A` (or the left mouse button) to type, or use
+the D-Pad or a stick to move between keys. `B` backspaces, `+` confirms and
+`HOME` cancels. A connected USB keyboard also types directly into the same
+field at any time (Enter to confirm, Esc to cancel). Clone with
+`--recurse-submodules` so libwiiosk is fetched. You can also skip the UI entirely and edit
 `sd:/wii/dns-switcher/profiles.txt` by hand; each line is
 `name<TAB>dns.ip.address`.
 

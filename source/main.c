@@ -233,6 +233,7 @@ int main(int argc, char **argv) {
     VIDEO_Flush();
     VIDEO_WaitVSync();
     if (rmode->viTVMode & VI_NON_INTERLACE) VIDEO_WaitVSync();
+    OnScreenKeyboard_SetVideo(rmode, xfb);
 
     fatInitDefault();
 

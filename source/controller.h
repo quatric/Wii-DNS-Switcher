@@ -2,7 +2,7 @@
 
 #include <gctypes.h>
 
-// Unified controller and USB keyboard polling via libinput-wii. Wiimote
+// Unified controller and USB keyboard polling via libwiiinput. Wiimote
 // (+ Nunchuk / Classic Controller), GameCube pad, USB keyboard and, when built
 // with the matching WITH_* flag, Wii U Pro Controller / Wii U GamePad / PS3
 // controller input all arrive as one WPAD_BUTTON_* bitmask so the rest of the

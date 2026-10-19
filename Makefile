@@ -6,13 +6,14 @@ include $(DEVKITPPC)/wii_rules
 
 TARGET      := dns-switcher
 BUILD       := build
-SOURCES     := source libinput-wii/source
+SOURCES     := source libwiiinput/source
 INCLUDES    := source
 
 LIBS        := -lfat -lwiikeyboard -lwiiuse -lbte -logc -lm
-LIBS	:=	-lwiiupdate $(LIBS)
-LIBDIRS     := $(CURDIR)/portlibs/ppc $(CURDIR)/libinput-wii
+LIBS	:=	-lwiiosk -lwiiupdate $(LIBS)
+LIBDIRS     := $(CURDIR)/portlibs/ppc $(CURDIR)/libwiiinput
 LIBDIRS	+=	$(CURDIR)/libwiiupdate
+LIBDIRS	+=	$(CURDIR)/libwiiosk
 
 CFLAGS      := -g -O2 -Wall -Wextra -ffunction-sections -D__wii__ \
                $(MACHDEP) $(INCLUDE)
@@ -77,6 +78,11 @@ $(BUILD): libwiiupdate-lib
 .PHONY: libwiiupdate-lib
 libwiiupdate-lib:
 	@$(MAKE) --no-print-directory -C $(CURDIR)/libwiiupdate
+
+$(BUILD): libwiiosk-lib
+.PHONY: libwiiosk-lib
+libwiiosk-lib:
+	@$(MAKE) --no-print-directory -C $(CURDIR)/libwiiosk
 
 clean:
 	@rm -fr $(BUILD) $(TARGET).elf $(TARGET).dol $(TARGET)-xz.dol
