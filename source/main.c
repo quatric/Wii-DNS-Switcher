@@ -17,7 +17,10 @@
 #define PROFILE_DIR  "sd:/wii/dns-switcher"
 #define PROFILE_PATH "sd:/wii/dns-switcher/profiles.txt"
 #define SETTINGS_PATH "sd:/wii/dns-switcher/settings.txt"
+#define BACKUP_PATH   "sd:/wii/dns-switcher/config.dat.bak"
+#define ORIGINAL_PATH "sd:/wii/dns-switcher/config.dat.orig"
 #define MAX_PROFILES 12
+#define ERR_BACKUP_FAILED -1000 /* not an ISFS code: SD backup could not be written */
 
 static void *xfb = NULL;
 static GXRModeObj *rmode = NULL;
@@ -212,7 +215,23 @@ static s32 ApplyProfile(const DnsProfile *profile, int target, int *changed) {
     }
 
     if (*changed == 0) return ISFS_EINVAL;
-    return NetConfigSave(&config);
+
+    /* Back up the untouched config to the SD card first: config.dat.orig is
+     * written once and never replaced, config.dat.bak holds the last state
+     * before each change. Refuse to write NAND if the backup can't be made. */
+    netconfig_t before;
+    rc = NetConfigLoad(&before);
+    if (rc != ISFS_OK) return rc;
+    mkdir("sd:/wii", 0777);
+    mkdir(PROFILE_DIR, 0777);
+    FILE *orig = fopen(ORIGINAL_PATH, "rb");
+    if (orig) fclose(orig);
+    else if (NetConfigBackup(&before, ORIGINAL_PATH) != 0) return ERR_BACKUP_FAILED;
+    if (NetConfigBackup(&before, BACKUP_PATH) != 0) return ERR_BACKUP_FAILED;
+
+    rc = NetConfigSave(&config);
+    if (rc != ISFS_OK) return rc;
+    return NetConfigVerify(&config);
 }
 
 static u32 UpdateButtons(void) {
@@ -269,7 +288,12 @@ int main(int argc, char **argv) {
             break;
         }
 
-        printf("DNS write failed: %d\n\nPress A to return.\n", (int)rc);
+        printf("DNS write failed: %d\n", (int)rc);
+        if (rc == ERR_BACKUP_FAILED)
+            printf("\nCould not back up config.dat to the SD card, so nothing was\nchanged. Check the card is inserted and not write-locked.\n");
+        else if (rc == ISFS_EINVAL)
+            printf("\nNo configured Wi-Fi slot matched, or the write did not verify.\n");
+        printf("\nPress A to return.\n");
         while (1) {
             if (Controller_Scan(CONTROLLER_BUTTONS_DOWN) & WPAD_BUTTON_A) break;
             PresentFrame();

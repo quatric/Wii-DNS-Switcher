@@ -95,6 +95,14 @@ s32 NetConfigLoad(netconfig_t *out);
 // Writes *config back to /shared2/sys/net/02/config.dat via ISFS.
 s32 NetConfigSave(const netconfig_t *config);
 
+// Saves *config to a file (e.g. on the SD card). Returns 0 on success, -1 on
+// failure.
+int NetConfigBackup(const netconfig_t *config, const char *path);
+
+// Re-reads config.dat and checks it matches *expected byte for byte. Returns
+// ISFS_OK on success, ISFS_EINVAL on a mismatch, or the ISFS read error.
+s32 NetConfigVerify(const netconfig_t *expected);
+
 // True if the slot has any connection data set up (SSID/IP fields non-zero).
 bool NetConfigSlotInUse(const netconfig_t *config, int slot);
 

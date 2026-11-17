@@ -24,6 +24,8 @@ Grab the latest build from the [latest release](../../releases/latest): `Wii-DNS
 - Exits automatically after a successful change.
 - Preserves SSIDs, passwords, DHCP, proxy, and other connection settings.
 
+Before every change the original `config.dat` is copied to `sd:/wii/dns-switcher/config.dat.orig` (once, never replaced) and the previous state to `config.dat.bak`. The write is read back and verified, and is skipped if the SD backup cannot be made.
+
 Profiles are stored at `sd:/wii/dns-switcher/profiles.txt`, and the target is
 stored at `sd:/wii/dns-switcher/settings.txt`.
 
