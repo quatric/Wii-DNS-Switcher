@@ -20,6 +20,7 @@
 #define BACKUP_PATH   "sd:/wii/dns-switcher/config.dat.bak"
 #define ORIGINAL_PATH "sd:/wii/dns-switcher/config.dat.orig"
 #define MAX_PROFILES 12
+#define DEFAULT_SECONDARY_DNS "1.1.1.1"
 #define ERR_BACKUP_FAILED -1000 /* not an ISFS code: SD backup could not be written */
 
 static void *xfb = NULL;
@@ -28,6 +29,7 @@ static GXRModeObj *rmode = NULL;
 typedef struct {
     char name[33];
     char dns[16];
+    char dns2[16]; // empty -> DEFAULT_SECONDARY_DNS
 } DnsProfile;
 
 static DnsProfile profiles[MAX_PROFILES];
@@ -35,7 +37,7 @@ static int profileCount = 0;
 
 static const char *TargetName(int target) {
     static const char *names[] = {
-        "All configured Wi-Fi slots",
+        "All configured connection slots",
         "Connection slot 1",
         "Connection slot 2",
         "Connection slot 3"
@@ -90,10 +92,17 @@ static void LoadProfiles(void) {
         if (!tab) continue;
         *tab++ = '\0';
         tab[strcspn(tab, "\r\n")] = '\0';
+        char *tab2 = strchr(tab, '\t');
+        if (tab2) *tab2++ = '\0';
         u8 parsed[4];
         if (line[0] && ParseIpv4(tab, parsed)) {
-            snprintf(profiles[profileCount].name, sizeof(profiles[profileCount].name), "%.32s", line);
-            snprintf(profiles[profileCount].dns, sizeof(profiles[profileCount].dns), "%.15s", tab);
+            DnsProfile *p = &profiles[profileCount];
+            snprintf(p->name, sizeof(p->name), "%.32s", line);
+            snprintf(p->dns, sizeof(p->dns), "%.15s", tab);
+            p->dns2[0] = '\0';
+            // An unparsable secondary is dropped, i.e. the default is used.
+            if (tab2 && ParseIpv4(tab2, parsed))
+                snprintf(p->dns2, sizeof(p->dns2), "%.15s", tab2);
             profileCount++;
         }
     }
@@ -106,9 +115,27 @@ static bool SaveProfiles(void) {
     FILE *f = fopen(PROFILE_PATH, "w");
     if (!f) return false;
     for (int i = 0; i < profileCount; ++i)
-        fprintf(f, "%s\t%s\n", profiles[i].name, profiles[i].dns);
+        if (profiles[i].dns2[0])
+            fprintf(f, "%s\t%s\t%s\n", profiles[i].name, profiles[i].dns, profiles[i].dns2);
+        else
+            fprintf(f, "%s\t%s\n", profiles[i].name, profiles[i].dns);
     bool ok = fclose(f) == 0;
     return ok;
+}
+
+// Detection logic from larsenv/GlowWii.
+static bool IsDolphin(void) {
+    s32 fd = IOS_Open("/dev/dolphin", IPC_OPEN_NONE);
+    if (fd < 0) return false;
+    IOS_Close(fd);
+    return true;
+}
+
+// vWii (Wii U): the vWii NandLoader title (0x200) is installed. From priiloader.
+static bool IsVWii(void) {
+    u32 count = 0;
+    if (ES_GetTitleContentsCount(0x0000000100000200ll, &count) < 0) return false;
+    return count > 0;
 }
 
 static void PresentFrame(void) {
@@ -124,6 +151,7 @@ static bool AddProfile(void) {
     if (profileCount >= MAX_PROFILES) return false;
     char name[33] = {0};
     char dns[16] = {0};
+    char dns2[16] = {0};
     u8 parsed[4];
 
     if (!OnScreenKeyboard("Profile name:", name, sizeof(name))) return false;
@@ -138,7 +166,20 @@ static bool AddProfile(void) {
         return false;
     }
 
+    // Cancelling (HOME) or an empty entry keeps the default secondary DNS.
+    if (OnScreenKeyboard("Secondary DNS (cancel = " DEFAULT_SECONDARY_DNS "):", dns2, sizeof(dns2)) &&
+        !ParseIpv4(dns2, parsed)) {
+        ClearConsole();
+        printf("Invalid IPv4 address.\n\nPress A to return.\n");
+        while (1) {
+            if (Controller_Scan(CONTROLLER_BUTTONS_DOWN) & WPAD_BUTTON_A) break;
+            PresentFrame();
+        }
+        return false;
+    }
+
     SanitizeName(name);
+    snprintf(profiles[profileCount].dns2, sizeof(profiles[profileCount].dns2), "%s", dns2);
     snprintf(profiles[profileCount].name, sizeof(profiles[profileCount].name), "%s", name);
     snprintf(profiles[profileCount].dns, sizeof(profiles[profileCount].dns), "%s", dns);
     profileCount++;
@@ -160,7 +201,12 @@ static int ChooseProfile(int *target) {
             ClearConsole();
             printf("Wii DNS Switcher\n\nSaved DNS profiles:\n\n");
             for (int i = 0; i < profileCount; ++i)
-                printf("%c %s  [%s]\n", i == selected ? '>' : ' ', profiles[i].name, profiles[i].dns);
+            {
+                if (profiles[i].dns2[0])
+                    printf("%c %s  [%s, %s]\n", i == selected ? '>' : ' ', profiles[i].name, profiles[i].dns, profiles[i].dns2);
+                else
+                    printf("%c %s  [%s]\n", i == selected ? '>' : ' ', profiles[i].name, profiles[i].dns);
+            }
             printf("%c + Add DNS profile\n", selected == addIndex ? '>' : ' ');
             printf("\nTarget: %s\n", TargetName(*target));
             printf("A: select   1: change target\n");
@@ -199,7 +245,9 @@ static int ChooseProfile(int *target) {
 static s32 ApplyProfile(const DnsProfile *profile, int target, int *changed) {
     u8 primary[4];
     if (!ParseIpv4(profile->dns, primary)) return ISFS_EINVAL;
-    static const u8 secondary[4] = {1, 1, 1, 1}; // always 1.1.1.1, matching the 3DS switcher
+    // Secondary is the profile's own, or 1.1.1.1 (matching the 3DS switcher).
+    u8 secondary[4];
+    if (!ParseIpv4(profile->dns2[0] ? profile->dns2 : DEFAULT_SECONDARY_DNS, secondary)) return ISFS_EINVAL;
 
     netconfig_t config;
     s32 rc = NetConfigLoad(&config);
@@ -254,6 +302,24 @@ int main(int argc, char **argv) {
     if (rmode->viTVMode & VI_NON_INTERLACE) VIDEO_WaitVSync();
     OnScreenKeyboard_SetVideo(rmode, xfb);
 
+    /* Dolphin ignores the Wii's DNS settings, and a Wii U's connection
+     * settings are managed on the Wii U itself, so refuse to run on either. */
+    bool dolphin = IsDolphin();
+    if (dolphin || IsVWii()) {
+        printf("\x1b[2;0HWii DNS Switcher\n\n");
+        if (dolphin) {
+            printf("This tool doesn't work on Dolphin Emulator.\n");
+            printf("Dolphin ignores the Wii's DNS settings.\n");
+        } else {
+            printf("This tool doesn't work on a Wii U.\n");
+            printf("Manage DNS on the Wii U side instead.\n");
+        }
+        printf("\nPress HOME to exit.\n");
+        while (!(Controller_Scan(CONTROLLER_BUTTONS_DOWN) & WPAD_BUTTON_HOME))
+            PresentFrame();
+        goto done;
+    }
+
     fatInitDefault();
 
     /* One update check at boot: B skips it, failures are silent. */
@@ -281,7 +347,7 @@ int main(int argc, char **argv) {
         s32 rc = ApplyProfile(&profiles[profileIndex], target, &changed);
         ClearConsole();
         if (rc == ISFS_OK) {
-            printf("Applied %s to %d Wi-Fi slot%s.\n", profiles[profileIndex].name, changed,
+            printf("Applied %s to %d connection slot%s.\n", profiles[profileIndex].name, changed,
                    changed == 1 ? "" : "s");
             PresentFrame();
             usleep(700000);
@@ -292,7 +358,7 @@ int main(int argc, char **argv) {
         if (rc == ERR_BACKUP_FAILED)
             printf("\nCould not back up config.dat to the SD card, so nothing was\nchanged. Check the card is inserted and not write-locked.\n");
         else if (rc == ISFS_EINVAL)
-            printf("\nNo configured Wi-Fi slot matched, or the write did not verify.\n");
+            printf("\nNo configured connection slot matched, or the write did not verify.\n");
         printf("\nPress A to return.\n");
         while (1) {
             if (Controller_Scan(CONTROLLER_BUTTONS_DOWN) & WPAD_BUTTON_A) break;

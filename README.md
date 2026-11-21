@@ -15,12 +15,12 @@ Grab the latest build from the [latest release](../../releases/latest): `Wii-DNS
 
 ## Features
 
-- Saves named primary-DNS profiles on the SD card.
+- Saves named DNS profiles (primary, plus an optional secondary) on the SD card.
 - Shows the profile list on every launch, including first setup.
-- Press `1` to choose and remember the target: all configured Wi-Fi slots or
-  connection slot 1, 2, or 3.
+- Press `1` to choose and remember the target: all configured connection
+  slots or connection slot 1, 2, or 3.
 - Press `A` to apply the highlighted profile immediately.
-- Always uses `1.1.1.1` as the secondary DNS.
+- Uses the profile's secondary DNS, or `1.1.1.1` if none is set.
 - Exits automatically after a successful change.
 - Preserves SSIDs, passwords, DHCP, proxy, and other connection settings.
 
@@ -46,7 +46,7 @@ Wii U GamePad, Wii U Pro Controller, and DualShock 3 support respectively
 
 - D-Pad Up/Down / Keyboard Up/Down: choose a profile or **Add DNS profile**
 - `A` / Keyboard Enter / Space: select/apply
-- `1` / Keyboard `1` / Tab: cycle and save the Wi-Fi-slot target
+- `1` / Keyboard `1` / Tab: cycle and save the connection-slot target
 - `2` / Keyboard `2` / Delete: delete the highlighted profile
 - `HOME` / Keyboard Esc: exit without applying
 
@@ -59,7 +59,7 @@ the D-Pad or a stick to move between keys. `B` backspaces, `+` confirms and
 field at any time (Enter to confirm, Esc to cancel). Clone with
 `--recurse-submodules` so libwiiosk is fetched. You can also skip the UI entirely and edit
 `sd:/wii/dns-switcher/profiles.txt` by hand; each line is
-`name<TAB>dns.ip.address`.
+`name<TAB>dns.ip.address` or `name<TAB>dns.ip.address<TAB>secondary.ip.address`.
 
 ## Building
 

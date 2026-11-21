@@ -15,8 +15,12 @@
 #define SELECTED_BIT 7 // 1 -> default connection
 #define ENABLED_BIT  5 // 1 -> connection enabled (passed the connection test)
 #define PROXY_BIT    4 // 1 -> proxy server is used
-#define IP_BIT       2 // 1 -> IP obtained via DHCP
-#define DNS_BIT      1 // 1 -> DNS obtained via DHCP
+// NOTE: WiiBrew and OfflineNetworkEnabler list these two the other way round,
+// but a config.dat saved by the Wii's own settings (auto IP, manual DNS) goes
+// A7 -> A3, i.e. bit 2 is the DNS source and bit 1 the IP source. Clearing the
+// wrong one left a manual IP of 0.0.0.0 and the Wii rejected it (Error 50300).
+#define DNS_BIT      2 // 1 -> DNS obtained via DHCP
+#define IP_BIT       1 // 1 -> IP obtained via DHCP
 #define MODE_BIT     0 // 1 -> wired, 0 -> wireless
 
 #define BIT_CHECK(var, pos) (!!((var) & (1 << (pos))))
