@@ -8,6 +8,7 @@
 
 #include <gccore.h>
 #include <ogc/conf.h>
+#include <ogc/lwp_watchdog.h>
 #include <input_wii.h>
 #include <wiiosk.h>
 #include <wiiosk_input_wii.h>
@@ -19,6 +20,17 @@
 static GXRModeObj *vmode;
 static void *vxfb;
 static void *gp_fifo;
+
+// GX_DrawDone() sleeps until the finish interrupt, which can be missed on
+// hardware and hangs forever. Poll the draw-sync token instead, with a timeout.
+static void GpuWait(void) {
+    static u16 token;
+    if (++token == 0) token = 1;
+    GX_SetDrawSync(token);
+    GX_Flush();
+    u64 t0 = gettime();
+    while (GX_GetDrawSync() != token && diff_msec(t0, gettime()) <= 200) {}
+}
 
 void OnScreenKeyboard_SetVideo(GXRModeObj *rmode, void *xfb) {
     vmode = rmode;
@@ -65,6 +77,7 @@ bool OnScreenKeyboard(const char *prompt, char *output, size_t capacity) {
     cfg.flags = OSK_FLAG_GX_READY | OSK_FLAG_NO_ENTER | OSK_FLAG_REQUIRE_TEXT;
     if (CONF_GetAspectRatio() == CONF_ASPECT_16_9) cfg.flags |= OSK_FLAG_WIDESCREEN;
     osk_keyboard *osk = OSK_Create(&cfg);
+    VIDEO_WaitVSync();
     if (!osk) {
         free(saved);
         free(spare);
@@ -74,12 +87,20 @@ bool OnScreenKeyboard(const char *prompt, char *output, size_t capacity) {
     if (!gp_fifo) {
         gp_fifo = memalign(32, FIFO_SIZE);
         memset(gp_fifo, 0, FIFO_SIZE);
+        // Write the zeros out and drop the cached copy, or a later cache
+        // eviction overwrites commands the GPU FIFO has received. This was
+        // a random freeze on hardware.
+        DCFlushRange(gp_fifo, FIFO_SIZE);
+        DCInvalidateRange(gp_fifo, FIFO_SIZE);
         GX_Init(gp_fifo, FIFO_SIZE);
     }
+    VIDEO_WaitVSync();
     SetupVideo(vmode);
+    VIDEO_WaitVSync();
     INPUT_SetScreenSize(vmode->fbWidth, vmode->efbHeight);
     GX_CopyDisp(fbs[1], GX_TRUE);
-    GX_DrawDone();
+    GpuWait();
+    VIDEO_WaitVSync();
 
     osk_status st;
     int cur = 1;
@@ -91,10 +112,9 @@ bool OnScreenKeyboard(const char *prompt, char *output, size_t capacity) {
 
         GX_SetViewport(0, 0, vmode->fbWidth, vmode->efbHeight, 0, 1);
         OSK_Draw(osk);
-        GX_DrawDone();
         GX_SetColorUpdate(GX_TRUE);
         GX_CopyDisp(fbs[cur], GX_TRUE);
-        GX_Flush();
+        GpuWait();
         VIDEO_SetNextFramebuffer(fbs[cur]);
         VIDEO_Flush();
         VIDEO_WaitVSync();
