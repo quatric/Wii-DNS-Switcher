@@ -100,7 +100,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: Wii DNS Switcher ${{ github.ref_name }}
-          make_latest: false
+          make_latest: true
           generate_release_notes: true
           fail_on_unmatched_files: true
           body: |
