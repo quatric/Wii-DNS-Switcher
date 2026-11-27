@@ -63,7 +63,7 @@ field at any time (Enter to confirm, Esc to cancel). Clone with
 
 ## Building
 
-Install a current devkitPPC/libogc toolchain (devkitPro) and run `make` from
+Install a current devkitPPC/libogc2 toolchain (devkitPro) and run `make` from
 the project root. `make package` additionally stages `dist/apps/dns-switcher`
 for copying to an SD card, with `dns-switcher-xz.dol` (the same program packed
 into a self-extracting `.dol` a fraction of the size) as `boot.dol`.

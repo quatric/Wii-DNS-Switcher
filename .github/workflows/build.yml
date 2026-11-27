@@ -15,7 +15,7 @@ jobs:
   build:
     name: Build Wii Binaries
     runs-on: ubuntu-latest
-    container: devkitpro/devkitppc:latest
+    container: ghcr.io/extremscorner/libogc2:latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
